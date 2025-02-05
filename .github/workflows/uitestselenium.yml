@@ -1,0 +1,52 @@
+name: Selenium/UITestSelenium
+on:
+  push:
+    branches:
+    - "*"
+env:
+  buildConfiguration: Release
+  buildPlatform: Any CPU
+  solution: "**/*.sln"
+jobs:
+  Build:
+    runs-on: windows-latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4.1.0
+    - name: Use .NET Core sdk 3.1.x
+      uses: actions/setup-dotnet@v4.0.0
+      with:
+        dotnet-version: 3.1.x
+    - uses: nuget/setup-nuget@v1.2.0
+    - run: nuget restore ${{ env.solution }}
+    - name: install msbuild
+      uses: microsoft/setup-msbuild@v1.3.1
+    - name: run msbuild
+      run: msbuild ${{ env.solution }} /p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:DesktopBuildPackageLocation="${{ runner.temp }}\WebApp.zip" /p:DeployIisAppPath="Default Web Site" -p:Configuration=${{ env.buildConfiguration }} -p:Platform="${{ env.buildPlatform }}"
+    - name: Zip files
+      run: 7z u ${{ runner.temp }}/teste.zip ./${{ runner.temp }}/*
+    - uses: actions/upload-artifact@v4.1.0
+      with:
+        name: WebAppPackage
+        path: "${{ runner.temp }}"
+    - uses: azure/login@v1.6.0
+      with:
+        creds: "${{ secrets.AZURE_CREDENTIALS }}"
+    - uses: azure/webapps-deploy@v3.0.0
+      with:
+        app-name: webappge
+        package: "${{ runner.temp }}/**/*.zip"
+#     # This item has no matching transformer
+#     - task: VisualStudioTestPlatformInstaller@1
+#       inputs:
+#         packageFeedSelector: nugetOrg
+#         versionSelector: latestPreRelease
+#     # This item has no matching transformer
+#     - task: VSTest@3
+#       inputs:
+#         testSelector: testPlan
+#         testPlan: '769'
+#         testSuite: '771'
+#         testConfiguration: '12'
+#         searchFolder: "${{ github.workspace }}"
+#         codeCoverageEnabled: true
